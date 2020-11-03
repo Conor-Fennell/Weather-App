@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!--including the vue js cdn to allow us to use vue functionality-->
+        <script src="https://cdn.jsdelivr.net/npm/vue@2.6.12/dist/vue.js"></script>
+        <title>Weather Forecast</title>
+    </head>
+
+    <body>
+        <div id="app"> <!--Use id of app, which we will mount to the dom later-->
+            <h1>Weather Forecast</h1>
+            <br><input v-model="location" placeholder="Enter a location">
+            <button v-on:click="GetWeather">Get the Weather</button>
+        </div>
+
+        <div id='appWeather'>
+            <br><span v-if="seen">Here is the weather for {{location}}:</span>
+            <br><ul v-if="seen">
+                    <li>Temperature: {{temperature}} °C</li>
+                    <li>Humidity: {{humidity}}%</li>
+                    <li>Wind Speed: {{windSpeed}} km/h</li>
+                </ul>
+        </div>
+
+        <script>
+            //initilise new vue application, mount element with id of "app"
+            var app = new Vue({
+                el: '#app',
+                data: {
+                    location: "", //default value is empty string
+                },
+                methods: {
+                    GetWeather: sendLocation //when we click GetWeather, call sendLocation
+                }
+            })
+
+            var appWeather = new Vue({
+                el: '#appWeather',
+                data: {
+                    location: "",
+                    temperature: "",
+                    humidty: "",
+                    windSpeed: "",
+                    seen: false
+                }
+            })
+        
+            function sendLocation() {
+                console.log("Location is: " + this.location)
+                //sends "/weatherFor/location" to our express server
+                fetch("/weatherFor/"+this.location)
+                    .then(data => data.json()) //then load respopnse as json
+                    .then(data => {
+                        //this.weather = data //then this.weather is our received data
+
+                        appWeather.location = this.location;
+                        appWeather.temperature = data['main']['temp'];
+                        appWeather.humidity = data['main']['humidity'];
+                        appWeather.windSpeed = data['wind']['speed'];
+                        appWeather.seen = true;
+                    })
+                //if we fail to keep our promise we will log this to the console
+                .catch(err => console.log("An error occured"));
+            }
+
+        </script>
+
+    </body>
+
+</html>
