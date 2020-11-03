@@ -59,14 +59,4 @@ function getWeather(req, res){
             .then(console.log("Data sent to client"))
         .catch(err => console.log("An error occured"));
 
-        //console.log("Here we are: "+data);
-        //res = {
-         //   "temperature": data['main']['temp'], 
-          //  "humidity": data['main']['humidity'], 
-          //  "windSpeed": data['wind']['speed']
-      //  }
-        //display data in console
-        //res = data.body()
-        //console.log(res)
-
     }
