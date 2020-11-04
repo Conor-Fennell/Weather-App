@@ -10,16 +10,27 @@
         <div id="app"> <!--Use id of app, which we will mount to the dom later-->
             <h1>Weather Forecast</h1>
             <br><input v-model="location" placeholder="Enter a location">
-            <button v-on:click="GetWeather">Get the Weather</button>
+            <button v-on:click="GetWeather">Get the Weather</button> <!--On click we call GetWeather method-->
         </div>
 
-        <div id='appWeather'>
-            <br><span v-if="seen">Here is the weather for {{location}}:</span>
-            <br><ul v-if="seen">
-                    <li>Temperature: {{temperature}} °C</li>
-                    <li>Humidity: {{humidity}}%</li>
-                    <li>Wind Speed: {{windSpeed}} km/h</li>
-                </ul>
+        <div id="appForecast"> <!--Use id of appForecast, which we will mount to the dom when we get the data-->
+            <br><span v-if="seen">There is currently {{currentWeather}} in {{location}}.
+            <br>You should pack for some {{packFor}} weather. <!--will say cold warm or hot depending on average temperature-->
+            <br>{{needUmbrella}}. <!--do we need umbrella or not message-->
+            <br>
+            <br>Here is the 5-day forecast:</span>
+            <ul v-if="seen"> <!--Only displayed when we get the data-->
+                <li v-for="item in weatherForecast"> <!--loop through all the days of our 5-day forecast-->
+                    Day {{item.day }} <!--display which day number it is-->
+                    <ul> <!--display the weather for each day in a list-->
+                        <li>Temperature: {{item.temperature}} °C</li>
+                        <li> Humidity: {{item.humidity}}%</li>
+                        <li>Wind Speed: {{item.windSpeed}} km/h </li>
+                        <li>Rainfall level: {{item.rainfall}}</li>
+                        <br>
+                    </ul>
+                </li>
+            </ul>
         </div>
 
         <script>
@@ -33,36 +44,93 @@
                     GetWeather: sendLocation //when we click GetWeather, call sendLocation
                 }
             })
-
-            var appWeather = new Vue({
-                el: '#appWeather',
+            //initilise new vue application, mount element with id of "appForecast"
+            var appForecast = new Vue({
+                el: '#appForecast',
                 data: {
-                    location: "",
-                    temperature: "",
-                    humidty: "",
-                    windSpeed: "",
-                    seen: false
-                }
-            })
+                    location: "", //user inputted city + api's country code
+                    packFor: "",
+                    rainfall: "",
+                    currentWeather: "", //current weather description from data
+                    needUmbrella: "", //A message for the dom, will depend on wether it rains or not
+                    weatherForecast: [ //list of weather for each day, initially all blank
+                        { day: "", temperature: "", humidity: "", windSpeed: "" },
+                        { day: "", temperature: "", humidity: "", windSpeed: "" },
+                        { day: "", temperature: "", humidity: "", windSpeed: "" },
+                        { day: "", temperature: "", humidity: "", windSpeed: "" },
+                        { day: "", temperature: "", humidity: "", windSpeed: "" },
+                    ],
+                    seen: false //we will set seen = true after we fetch the data to display it
+                    }
+                })
         
+            //This function is called after we click the Get the WWeather button (Called by GetWeather method)
             function sendLocation() {
-                console.log("Location is: " + this.location)
+                appForecast.seen = false; //hide old data when we click the button
                 //sends "/weatherFor/location" to our express server
                 fetch("/weatherFor/"+this.location)
                     .then(data => data.json()) //then load respopnse as json
                     .then(data => {
-                        //this.weather = data //then this.weather is our received data
+                        console.log(data);
+                        //add the county code to the user inputted location so they can be sure its the correct city
+                        appForecast.location = this.location+" (Country: "+data[5]+")"; 
+                        //display the current weather on the dom
+                        appForecast.currentWeather = data[0]['weather'][0]['description'];
+                        let needUmbrella = false; //will set false by default, change to true if it rains
+                        // we will record min and max temps for the 5 days and get an average temperature
+                        let max_temp; 
+                        let min_temp;
+                        let i = 0; //initlise to 0 for our loop below
+                        for (const item of appForecast.weatherForecast){
+                            item.day = i+1; //i.e: Day 1, Day 2 etc (starts at 0 so we add 1)
+                            //add our incoming data to our weatherForecast list which we will display on screen
+                            item.temperature = data[i]['main']['temp']; //add our variables to our weatherForecast list
+                            item.humidity = data[i]['main']['humidity'];
+                            item.windSpeed = data[i]['wind']['speed'];
 
-                        appWeather.location = this.location;
-                        appWeather.temperature = data['main']['temp'];
-                        appWeather.humidity = data['main']['humidity'];
-                        appWeather.windSpeed = data['wind']['speed'];
-                        appWeather.seen = true;
+                            //checking if current max is the all time max temp for the week so far
+                            if(data[i]['main']['temp_max'] > max_temp || i==0){
+                                max_temp = data[i]['main']['temp_max'];
+                            }
+                            //checking if current min temp is the all time min temp for the week so far
+                            if(data[i]['main']['temp_min'] < min_temp || i==0){
+                                min_temp = data[i]['main']['temp_min'];
+                            }
+                            //if it rains during the week we will set needUmbrella to true
+                            //We will also record the description of the rainfall, if it rains
+                            if(data[i]['weather'][0]['main'] == 'Rain'){
+                                item.rainfall = data[i]['weather'][0]['description'];
+                                needUmbrella = true;
+                            }
+                            else{ //display this on the dom if theres no rain on this day
+                                item.rainfall = "no rain";
+                            }
+                            i++; //next day/element in data
+                        }
+                        //We will now calculate the mean temperature for the 5-days
+                        //we will determine what kind of temperature to tell the user to pack for
+                        let mean_temp = (min_temp+max_temp)/2;
+                        if(mean_temp < 10){
+                            appForecast.packFor = "Cold";
+                        }
+                        else if(mean_temp < 20){
+                            appForecast.packFor = "Warm";
+                        }
+                        else{
+                            appForecast.packFor = "Hot";
+                        }
+                        //depending on wether it will rain or not, we will display a different message on the dom
+                        if (needUmbrella == true){
+                            appForecast.needUmbrella = "Looks like it's going to rain, you should pack an umbrella";
+                        }
+                        else{
+                            appForecast.needUmbrella = "There is no rain forecast, you shouldn't need an umbrella";
+                        }
+                        appForecast.seen = true; //set v-seen=true so we can see the 5-day forecast
                     })
-                //if we fail to keep our promise we will log this to the console
-                .catch(err => console.log("An error occured"));
+                //if we fail to keep our promise, we will alert the user to try again
+                .catch(err => {alert("Invalid city name, please try again!")});
             }
-
         </script>
 
     </body>
